@@ -120,19 +120,22 @@ def download_db_backup() -> dict | None:
     if not _ensure_configured():
         return None
     try:
-        import json
-        import urllib.request
+        import requests
         import cloudinary.utils
         url, _ = cloudinary.utils.cloudinary_url(
             "backup/db_backup.json",
             resource_type="raw",
             secure=True,
         )
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            content = response.read().decode('utf-8')
-            return json.loads(content)
+        res = requests.get(url, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            print(f"[cloudinary] Successfully downloaded backup from Cloudinary: {len(data.get('users', []))} users")
+            return data
+        else:
+            print(f"[cloudinary] Download backup returned status {res.status_code}")
     except Exception as e:
         print(f"[cloudinary] DB restore download error: {e}")
-        return None
+    return None
+
 

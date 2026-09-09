@@ -150,10 +150,40 @@ def create_user(email, password_hash, full_name=None):
         return False, None, str(e)
 
 
+def restore_db_from_cloud():
+    """Tải và khôi phục cơ sở dữ liệu từ Cloudinary nếu chưa có."""
+    try:
+        conn = get_connection()
+        from src import cloudinary_storage
+        backup_data = cloudinary_storage.download_db_backup()
+        if backup_data and "users" in backup_data and len(backup_data["users"]) > 0:
+            for u in backup_data.get("users", []):
+                conn.execute("""
+                    INSERT OR IGNORE INTO users (id, email, password_hash, full_name, role, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (u.get("id"), u.get("email"), u.get("password_hash"), u.get("full_name"), u.get("role", "user"), u.get("created_at")))
+            
+            for m in backup_data.get("meetings", []):
+                conn.execute("""
+                    INSERT OR IGNORE INTO meetings (id, user_id, room_name, audio_path, transcript, summary, summary_time_seconds, llm_summary, llm_summary_time_seconds, duration_seconds, language_confidence, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (m.get("id"), m.get("user_id", 1), m.get("room_name"), m.get("audio_path"), m.get("transcript"), m.get("summary"), m.get("summary_time_seconds"), m.get("llm_summary"), m.get("llm_summary_time_seconds"), m.get("duration_seconds"), m.get("language_confidence"), m.get("created_at")))
+            conn.commit()
+            print(f"[database] restore_db_from_cloud: Đã khôi phục {len(backup_data.get('users', []))} người dùng.")
+        conn.close()
+    except Exception as e:
+        print(f"[database] restore_db_from_cloud error: {e}")
+
+
 def get_user_by_email(email):
     conn = get_connection()
     row = conn.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
     conn.close()
+    if not row:
+        restore_db_from_cloud()
+        conn = get_connection()
+        row = conn.execute("SELECT * FROM users WHERE email = ?", (email.strip().lower(),)).fetchone()
+        conn.close()
     return dict(row) if row else None
 
 
