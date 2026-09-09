@@ -41,11 +41,26 @@ class Summarizer:
         if not text or len(text.strip()) == 0:
             return ""
 
-        parser = PlaintextParser.from_string(text, Tokenizer("english"))
-        summary_sentences = self.summarizer(parser.document, sentence_count)
+        try:
+            import re
+            sentences = [s.strip() for s in re.split(r'[.!?\n]+', text) if len(s.strip()) > 3]
+            if not sentences:
+                return text[:300]
+            if len(sentences) <= sentence_count:
+                return " ".join(sentences)
 
-        summary_text = " ".join(str(sentence) for sentence in summary_sentences)
-        return summary_text
+            try:
+                parser = PlaintextParser.from_string(text, Tokenizer("english"))
+                summary_sentences = self.summarizer(parser.document, sentence_count)
+                res = " ".join(str(sentence) for sentence in summary_sentences)
+                if res.strip():
+                    return res
+            except Exception as e:
+                print(f"[summarizer] sumy error, using sentence extraction: {e}")
+
+            return " ".join(sentences[:sentence_count])
+        except Exception as e:
+            return text[:300]
 
     def extract_action_items(self, text: str) -> list:
         """Trích xuất danh sách việc cần làm (Action Items) từ văn bản."""

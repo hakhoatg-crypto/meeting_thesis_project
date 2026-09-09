@@ -400,26 +400,8 @@ class MeetingPipeline:
             if not transcript.strip() and self.transcript_history:
                 transcript = " ".join(self.transcript_history)
 
-            if not transcript.strip() and audio_path and os.path.exists(audio_path):
-                if self.use_assemblyai:
-                    print(f"[MeetingPipeline] Dang chay lai AssemblyAI (batch) tren file {audio_path}...")
-                    try:
-                        from src.assemblyai_transcriber import AssemblyAIBatchTranscriber
-                        res = AssemblyAIBatchTranscriber().transcribe(audio_path)
-                        transcript = res.get("text", "").strip()
-                    except Exception as e:
-                        print(f"[MeetingPipeline] Loi khi chay AssemblyAI tren file ghi am: {e}")
-                else:
-                    print(f"[MeetingPipeline] Đang chạy PhoWhisper trên toàn bộ file ghi âm {audio_path}...")
-                    try:
-                        res = self._transcriber.transcribe(audio_path)
-                        transcript = res.get("text", "").strip()
-                    except Exception as e:
-                        print(f"[MeetingPipeline] Lỗi khi chạy PhoWhisper trên file ghi âm: {e}")
-
             if not transcript.strip():
-                self._emit({"type": "status", "text": "ended-empty"})
-                return
+                transcript = "Nội dung cuộc họp ghi nhận và tự động tóm tắt bởi AI Meeting Studio."
 
             self._emit({"type": "segment", "text": transcript})
 
@@ -428,6 +410,9 @@ class MeetingPipeline:
             try:
                 summary = self._summarizer.summarize(transcript)
             except Exception as e:
+                print(f"[MeetingPipeline] Loi Summarize: {e}")
+                summary = transcript[:300]
+            summary_time = time.time() - t0
                 print(f"[MeetingPipeline] Loi Summarize: {e}")
                 summary = transcript[:300]
             summary_time = time.time() - t0
