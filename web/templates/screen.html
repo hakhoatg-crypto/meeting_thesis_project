@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Studio - Ghi âm & Phụ đề Trực tiếp</title>
+    <link rel="stylesheet" href="/static/style.css?v=3.2">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .source-selector {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(255, 255, 255, 0.08); padding: 6px 14px;
+            border-radius: 20px; font-size: 13px; color: #fff; margin-right: auto;
+        }
+        .source-selector select {
+            background: #1e293b; color: #fff; border: 1px solid #475569;
+            padding: 4px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; outline: none;
+        }
+        .save-location-box {
+            background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px;
+            padding: 16px; margin-bottom: 20px; color: #166534;
+        }
+        .save-location-box h4 {
+            margin: 0 0 8px 0; font-size: 15px; display: flex; align-items: center; gap: 8px; color: #15803d;
+        }
+        .save-location-list { list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.8; }
+        .save-location-list li { display: flex; align-items: center; gap: 8px; }
+        
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px);
+            z-index: 9999; display: flex; align-items: center; justify-content: center;
+        }
+        .modal-box {
+            background: #1e293b; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px; width: 90%; max-width: 420px; padding: 28px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); color: #fff;
+        }
+        .auth-tab-btn {
+            background: transparent; border: none; color: #94a3b8; padding: 8px 16px;
+            font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent;
+        }
+        .auth-tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; }
+        .form-group { margin-bottom: 16px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 13px; color: #cbd5e1; font-weight: 600; }
+        .form-control {
+            width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155;
+            background: #0f172a; color: #fff; font-size: 14px; outline: none; box-sizing: border-box;
+        }
+        .user-badge {
+            display: inline-flex; align-items: center; gap: 8px; background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.3); padding: 6px 12px; border-radius: 20px; color: #a5b4fc; font-size: 13px; font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="app-shell">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-brain"></i>
+                </div>
+                <div class="brand-text">
+                    <h2>AI Voice Studio</h2>
+                    <span>Enterprise v3.0</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section-title">Menu Chính</div>
+                <a href="/" class="nav-item">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Lịch sử ghi âm</span>
+                </a>
+                <a href="/screen" class="nav-item active">
+                    <i class="fa-solid fa-microphone"></i>
+                    <span>Studio Ghi âm & Phụ đề</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status-pill">
+                    <div class="status-dot pulse"></div>
+                    <div>
+                        <div style="font-weight:700; color:#fff; font-size:11px;">AI HYBRID STUDIO</div>
+                        <div style="font-size:10px; color:#94a3b8;">Unified Real-time Engine</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Wrapper -->
+        <div class="app-main">
+            <!-- Header Bar -->
+            <header class="app-header">
+                <button class="mobile-nav-toggle" onclick="toggleSidebar()" aria-label="Toggle Navigation">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+
+                <div class="header-title-group">
+                    <h1>🎙️ Studio Ghi âm & Phụ đề AI</h1>
+                    <p>Thu âm trực tiếp, hiển thị phụ đề thời gian thực & tạo tóm tắt AI tự động</p>
+                </div>
+
+                <div class="header-actions" style="display:flex; align-items:center; gap:8px;">
+                    <div id="userPill" class="user-badge" style="display:none;">
+                        <i class="fa-solid fa-circle-user"></i>
+                        <span id="userNameDisplay">Tài khoản</span>
+                    </div>
+
+                    <button id="btnLogout" type="button" onclick="handleAuthLogout()" class="btn btn-outline btn-sm" style="display:none; color:#ef4444; border-color:rgba(239,68,68,0.3);" title="Đăng xuất">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="hide-mobile">Đăng xuất</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- App Content -->
+            <main class="app-content">
+                <div id="connectionAlert" class="alert-box alert-warning" style="display:none;">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <div id="connectionAlertText">Chưa kết nối Server Mic. Hãy sử dụng Mic Trình duyệt nếu thu âm từ điện thoại.</div>
+                </div>
+
+                {% if not pipeline_ready %}
+                <div class="alert-box alert-warning">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <div>
+                        <strong style="font-size:15px; display:block; margin-bottom:4px;">Microphone Thiết bị chưa kết nối</strong>
+                        Microphone Thiết bị (Jetson Nano/Hardware) chưa kết nối. Bạn hãy chọn chế độ <strong>"Mic Trình duyệt"</strong> để ghi âm trực tiếp từ điện thoại/laptop.
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Studio Stage Area -->
+                <div class="studio-stage">
+                    <div class="stage-header">
+                        <div class="stage-title">
+                            <div class="audio-visualizer" id="visualizer" style="display: none;">
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                            </div>
+                            <h2>🔴 Studio Phụ Đề Trực Tiếp</h2>
+                        </div>
+
+                        <div class="source-selector">
+                            <i class="fa-solid fa-microphone"></i>
+                            <span>Nguồn thu âm:</span>
+                            <select id="micSourceSelect">
+                                <option value="server">Mic Thiết bị (Jetson Nano Hardware)</option>
+                                <option value="browser" selected>Mic Trình duyệt (Browser / Google Speech)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Toolbar & Action Control Bar -->
+                    <div class="stage-toolbar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+                        <div class="tool-buttons" style="display:flex; align-items:center; gap:8px;">
+                            <button type="button" class="btn btn-outline" style="color:#334155; border-color:#cbd5e1; background:#ffffff;" onclick="changeFontSize(-2)" title="Giảm cỡ chữ">
+                                <i class="fa-solid fa-font"></i> -
+                            </button>
+                            <button type="button" class="btn btn-outline" style="color:#334155; border-color:#cbd5e1; background:#ffffff;" onclick="changeFontSize(2)" title="Tăng cỡ chữ">
+                                <i class="fa-solid fa-font"></i> +
+                            </button>
+                            <button type="button" class="btn btn-outline" style="color:#334155; border-color:#cbd5e1; background:#ffffff;" onclick="copyCaptionText()" title="Sao chép toàn bộ">
+                                <i class="fa-regular fa-copy"></i> Sao chép
+                            </button>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button id="startBtn" class="btn btn-primary btn-lg">
+                                <i class="fa-solid fa-play"></i>
+                                <span>Bắt đầu ghi âm</span>
+                            </button>
+                            <button id="stopBtn" class="btn btn-danger btn-lg" style="display:none;">
+                                <i class="fa-solid fa-square"></i>
+                                <span>Dừng ghi âm</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Caption Stage Box -->
+                    <div id="captionBox" class="caption-stage-box" style="min-height: 90px; font-size: 20px;">
+                        <div id="activeSpeakerBadge" style="display:none; font-size:13px; font-weight:700; color:#4f46e5; margin-bottom:8px; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-user-circle"></i> <span id="speakerNameTag">Speaker A</span>
+                        </div>
+                        <span id="finalText" class="caption-final"></span>
+                        <span id="partialText" class="caption-partial"></span>
+                        <div id="emptyHint" class="caption-empty-hint">
+                            <i class="fa-solid fa-volume-high"></i>
+                            <span>Sẵn sàng hiển thị phụ đề...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline Log Card -->
+                <div class="timeline-card">
+                    <div class="timeline-header">
+                        <h3><i class="fa-solid fa-list-ul"></i> Nhật ký Văn bản Chi tiết (Speaker Transcripts)</h3>
+                    </div>
+
+                    <div id="segmentLog" class="segment-list">
+                        <div id="emptyLogHint" class="segment-bubble" style="border-left-color: #cbd5e1; color: var(--text-muted);">
+                            <i>Chưa có dữ liệu nhật ký.</i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Summary Panel Card -->
+                <div id="summaryPanel" class="summary-panel-card" style="display:none;">
+                    <h2>
+                        <i class="fa-solid fa-circle-check" style="color: var(--success);"></i>
+                        <span>Phiên ghi âm đã kết thúc - Bản Tóm tắt AI Tự động</span>
+                    </h2>
+                    <p class="meta" id="summaryMeta" style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;"></p>
+                    
+                    <div class="save-location-box">
+                        <h4><i class="fa-solid fa-floppy-disk"></i> Dữ liệu phiên ghi âm đã được lưu trữ thành công:</h4>
+                        <ul class="save-location-list">
+                            <li><i class="fa-solid fa-database" style="color:#16a34a;"></i> <strong>Cơ sở dữ liệu SQLite:</strong> <code>data/meetings.db</code> (Tra cứu tại mục <strong><a href="/" style="color:#15803d; text-decoration:underline;">Lịch sử ghi âm</a></strong>)</li>
+                            <li><i class="fa-solid fa-file-lines" style="color:#0284c7;"></i> <strong>Báo cáo văn bản tự động (TXT):</strong> <span id="txtReportPath"><code>data/text_reports/CuocHop_...txt</code></span></li>
+                            <li><i class="fa-solid fa-music" style="color:#9333ea;"></i> <strong>File ghi âm âm thanh gốc (WAV):</strong> <code>data/audio/</code></li>
+                        </ul>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <h3 style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Bản tóm tắt TextRank (Trích xuất nhanh)</h3>
+                        <div class="summary-box" id="summaryText"></div>
+                    </div>
+
+                    <div id="llmBlock" style="display:none; margin-top: 16px;">
+                        <h3 style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Bản tóm tắt LLM GPT (Sinh văn bản nâng cao)</h3>
+                        <div class="summary-box llm" id="llmSummaryText"></div>
+                    </div>
+
+                    <div style="margin-top: 24px; text-align: right;">
+                        <a class="btn btn-primary" id="detailLink" href="#">
+                            <span>Xem chi tiết & Nghe lại Audio</span>
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- AUTH MODAL -->
+    <div id="authModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-box">
+            <div style="display:flex; justify-content:space-around; margin-bottom: 20px; border-bottom: 1px solid #334155;">
+                <button type="button" id="tabLogin" class="auth-tab-btn active" onclick="switchAuthTab('login')">ĐĂNG NHẬP</button>
+                <button type="button" id="tabRegister" class="auth-tab-btn" onclick="switchAuthTab('register')">ĐĂNG KÝ MỚI</button>
+            </div>
+
+            <form id="formLogin" onsubmit="event.preventDefault(); handleAuthLogin();">
+                <div class="form-group">
+                    <label>Email Tài Khoản</label>
+                    <input type="email" id="loginEmail" class="form-control" placeholder="user@gmail.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Mật Khẩu</label>
+                    <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">
+                    <i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập Vào Studio
+                </button>
+            </form>
+
+            <form id="formRegister" onsubmit="event.preventDefault(); handleAuthRegister();" style="display: none;">
+                <div class="form-group">
+                    <label>Họ & Tên</label>
+                    <input type="text" id="regFullName" class="form-control" placeholder="Nguyễn Văn A" required>
+                </div>
+                <div class="form-group">
+                    <label>Email Đăng Ký</label>
+                    <input type="email" id="regEmail" class="form-control" placeholder="user@gmail.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Mật Khẩu</label>
+                    <input type="password" id="regPassword" class="form-control" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">
+                    <i class="fa-solid fa-user-plus"></i> Tạo Tài Khoản Mới
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const WS_TOKEN = "{{ ws_token or '' }}";
+        let ws = null;
+        let activeSource = "browser"; // Mac dinh Mic Trinh duyet cho linh hoat
+        let currentFontSize = 24;
+
+        let audioContext = null;
+        let mediaStream = null;
+        let processor = null;
+        let isBrowserRecording = false;
+
+        const startBtn = document.getElementById("startBtn");
+        const stopBtn = document.getElementById("stopBtn");
+        const micSourceSelect = document.getElementById("micSourceSelect");
+        const finalTextEl = document.getElementById("finalText");
+        const partialTextEl = document.getElementById("partialText");
+        const emptyHint = document.getElementById("emptyHint");
+        const segmentLog = document.getElementById("segmentLog");
+        const summaryPanel = document.getElementById("summaryPanel");
+        const visualizer = document.getElementById("visualizer");
+        const captionBox = document.getElementById("captionBox");
+        const connectionAlert = document.getElementById("connectionAlert");
+        const connectionAlertText = document.getElementById("connectionAlertText");
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('mobile-open');
+            if (overlay) overlay.classList.toggle('active');
+        }
+
+        // ================= AUTH HANDLERS =================
+        function switchAuthTab(tab) {
+            if (tab === 'login') {
+                document.getElementById('formLogin').style.display = 'block';
+                document.getElementById('formRegister').style.display = 'none';
+                document.getElementById('tabLogin').classList.add('active');
+                document.getElementById('tabRegister').classList.remove('active');
+            } else {
+                document.getElementById('formLogin').style.display = 'none';
+                document.getElementById('formRegister').style.display = 'block';
+                document.getElementById('tabRegister').classList.add('active');
+                document.getElementById('tabLogin').classList.remove('active');
+            }
+        }
+
+        async function checkAuthSession() {
+            const token = sessionStorage.getItem('session_token');
+            if (!token) {
+                document.getElementById('authModal').style.display = 'flex';
+                return;
+            }
+            try {
+                const res = await fetch('/api/auth/me', {
+                    headers: { 'X-Session-Token': token }
+                });
+                const data = await res.json();
+                if (data.authenticated) {
+                    document.getElementById('authModal').style.display = 'none';
+                    document.getElementById('userPill').style.display = 'inline-flex';
+                    document.getElementById('btnLogout').style.display = 'inline-flex';
+                    document.getElementById('userNameDisplay').innerText = data.user.full_name || data.user.email;
+                } else {
+                    sessionStorage.removeItem('session_token');
+                    document.getElementById('authModal').style.display = 'flex';
+                }
+            } catch (err) {
+                document.getElementById('authModal').style.display = 'flex';
+            }
+        }
+
+        async function handleAuthLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    sessionStorage.setItem('session_token', data.token);
+                    document.cookie = `session_token=${data.token}; path=/`;
+                    window.location.reload();
+                } else {
+                    alert("Lỗi đăng nhập: " + (data.error || "Mật khẩu không đúng."));
+                }
+            } catch (err) {
+                alert("Lỗi kết nối máy chủ: " + err.message);
+            }
+        }
+
+        async function handleAuthRegister() {
+            const full_name = document.getElementById('regFullName').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ full_name, email, password })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    sessionStorage.setItem('session_token', data.token);
+                    document.cookie = `session_token=${data.token}; path=/`;
+                    alert("Đăng ký thành công!");
+                    window.location.reload();
+                } else {
+                    alert("Lỗi đăng ký: " + (data.error || "Email đã tồn tại."));
+                }
+            } catch (err) {
+                alert("Lỗi kết nối máy chủ: " + err.message);
+            }
+        }
+
+        async function handleAuthLogout() {
+            const token = sessionStorage.getItem('session_token');
+            if (token) {
+                try {
+                    await fetch('/api/auth/logout', {
+                        method: 'POST',
+                        headers: { 'X-Session-Token': token }
+                    });
+                } catch(e){}
+            }
+            sessionStorage.removeItem('session_token');
+            document.cookie = "session_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            window.location.reload();
+        }
+
+        function showNotification(msg) {
+            if (connectionAlert && connectionAlertText) {
+                connectionAlertText.innerHTML = msg;
+                connectionAlert.style.display = "flex";
+            }
+        }
+
+        function hideNotification() {
+            if (connectionAlert) connectionAlert.style.display = "none";
+        }
+
+        function changeFontSize(delta) {
+            currentFontSize = Math.max(16, Math.min(44, currentFontSize + delta));
+            captionBox.style.fontSize = currentFontSize + "px";
+        }
+
+        function copyCaptionText() {
+            let fullText = finalTextEl.textContent;
+            const segments = segmentLog.querySelectorAll(".segment-bubble");
+            if (segments.length > 0) {
+                let textArr = [];
+                segments.forEach(b => textArr.push(b.innerText.trim()));
+                fullText = textArr.join("\n");
+            }
+            if (!fullText.trim()) return alert("Chưa có nội dung văn bản để sao chép!");
+            navigator.clipboard.writeText(fullText);
+            alert("Đã sao chép toàn bộ nội dung văn bản!");
+        }
+
+        function floatTo16BitPCM(float32Array) {
+            const buffer = new ArrayBuffer(float32Array.length * 2);
+            const view = new DataView(buffer);
+            let offset = 0;
+            for (let i = 0; i < float32Array.length; i++, offset += 2) {
+                let s = Math.max(-1, Math.min(1, float32Array[i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+            return buffer;
+        }
+
+        function addSegmentBubble(text) {
+            if (!text) return;
+            const emptyHintEl = document.getElementById("emptyLogHint");
+            if (emptyHintEl) emptyHintEl.remove();
+
+            const bubble = document.createElement("div");
+            bubble.className = "segment-bubble";
+            bubble.innerHTML = `<i class="fa-regular fa-comment-dots" style="color:var(--primary); margin-right:6px;"></i> ${text}`;
+            segmentLog.appendChild(bubble);
+            segmentLog.scrollTop = segmentLog.scrollHeight;
+        }
+
+        // ================= WEBSOCKET CONNS =================
+        function connectScreenSocket() {
+            if (ws) ws.close();
+            const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const token = sessionStorage.getItem('session_token') || WS_TOKEN;
+            const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : "";
+            ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws/meeting-screen${tokenQuery}`);
+
+            ws.onopen = () => { 
+                if (activeSource === "server") hideNotification();
+            };
+
+            ws.onclose = () => { 
+                if (activeSource === "server") {
+                    showNotification("Chưa mở Server backend Python (`python web/app.py`). Vui lòng bật server trong Terminal!");
+                    setTimeout(connectScreenSocket, 4000); 
+                }
+            };
+
+            ws.onmessage = (event) => {
+                if (activeSource === "server") handleServerEvent(JSON.parse(event.data));
+            };
+        }
+
+        function handleServerEvent(data) {
+            if (data.type === "status") {
+                if (data.text === "listening") {
+                    startBtn.style.display = "none";
+                    stopBtn.style.display = "inline-flex";
+                    micSourceSelect.disabled = true;
+                    summaryPanel.style.display = "none";
+                    emptyHint.style.display = "none";
+                    if (visualizer) visualizer.style.display = "flex";
+                } else if (data.text === "summarizing") {
+                    startBtn.style.display = "none";
+                    stopBtn.style.display = "none";
+                    if (visualizer) visualizer.style.display = "none";
+                    showNotification("⏳ Đang tổng hợp tóm tắt AI...");
+                } else if (data.text === "ended" || data.text === "ended-empty") {
+                    startBtn.style.display = "inline-flex";
+                    stopBtn.style.display = "none";
+                    micSourceSelect.disabled = false;
+                    if (visualizer) visualizer.style.display = "none";
+                    hideNotification();
+                }
+            } else if (data.type === "final" && data.text) {
+                finalTextEl.textContent += data.text + ". ";
+                partialTextEl.textContent = "";
+                emptyHint.style.display = "none";
+            } else if (data.type === "partial") {
+                partialTextEl.textContent = data.text;
+                if (data.text) emptyHint.style.display = "none";
+            } else if (data.type === "segment" && data.text) {
+                addSegmentBubble(data.text);
+            } else if (data.type === "summary") {
+                document.getElementById("summaryMeta").textContent =
+                    `Thời lượng: ${Math.round(data.duration_seconds)} giây | Mã phiên: #${data.meeting_id}`;
+                document.getElementById("summaryText").textContent = data.summary || "(Không có nội dung tóm tắt)";
+                document.getElementById("txtReportPath").innerHTML = `<code>data/text_reports/CuocHop_${data.meeting_id}.txt</code>`;
+                document.getElementById("detailLink").href = `/meeting/${data.meeting_id}`;
+                
+                if (data.llm_summary) {
+                    document.getElementById("llmBlock").style.display = "block";
+                    document.getElementById("llmSummaryText").textContent = data.llm_summary;
+                } else {
+                    document.getElementById("llmBlock").style.display = "none";
+                }
+                summaryPanel.style.display = "block";
+                summaryPanel.scrollIntoView({ behavior: "smooth" });
+            }
+        }
+
+        // ================= BROWSER MIC MODE =================
+        let browserPcmChunks = [];
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+        }
+
+        function createWavBlob(pcmBytes, sampleRate = 16000) {
+            const buffer = new ArrayBuffer(44 + pcmBytes.length);
+            const view = new DataView(buffer);
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + pcmBytes.length, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, pcmBytes.length, true);
+            const dest = new Uint8Array(buffer, 44);
+            dest.set(pcmBytes);
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        async function startBrowserMicRecording() {
+            try {
+                browserPcmChunks = [];
+                const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+                const token = sessionStorage.getItem('session_token') || WS_TOKEN;
+                const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : "";
+                ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws/live-transcribe${tokenQuery}`);
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.type === "final" && data.text) {
+                        finalTextEl.textContent += data.text + ". ";
+                        partialTextEl.textContent = "";
+                        addSegmentBubble(data.text);
+                        emptyHint.style.display = "none";
+                    } else if (data.type === "partial") {
+                        partialTextEl.textContent = data.text;
+                        if (data.text) emptyHint.style.display = "none";
+                    }
+                };
+
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new AudioContext({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                processor.onaudioprocess = (e) => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        const inputData = e.inputBuffer.getChannelData(0);
+                        const pcmData = floatTo16BitPCM(inputData);
+                        ws.send(pcmData);
+                        browserPcmChunks.push(new Uint8Array(pcmData));
+                    }
+                };
+
+                isBrowserRecording = true;
+                startBtn.style.display = "none";
+                stopBtn.style.display = "inline-flex";
+                micSourceSelect.disabled = true;
+                summaryPanel.style.display = "none";
+                if (visualizer) visualizer.style.display = "flex";
+                emptyHint.style.display = "none";
+                hideNotification();
+            } catch (err) {
+                alert("Không thể truy cập Microphone Trình duyệt: " + err.message);
+            }
+        }
+
+        async function stopBrowserMicRecording() {
+            if (processor) processor.disconnect();
+            if (audioContext) audioContext.close();
+            if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+            if (ws) ws.close();
+
+            isBrowserRecording = false;
+            startBtn.style.display = "none";
+            stopBtn.style.display = "none";
+            showNotification("⏳ Đang lưu & Tổng hợp tóm tắt AI...");
+            if (visualizer) visualizer.style.display = "none";
+
+            try {
+                let totalLen = browserPcmChunks.reduce((acc, c) => acc + c.byteLength, 0);
+                if (totalLen === 0) {
+                    hideNotification();
+                    startBtn.style.display = "inline-flex";
+                    micSourceSelect.disabled = false;
+                    return;
+                }
+
+                let combined = new Uint8Array(totalLen);
+                let offset = 0;
+                for (let c of browserPcmChunks) {
+                    combined.set(c, offset);
+                    offset += c.byteLength;
+                }
+                browserPcmChunks = [];
+
+                let wavBlob = createWavBlob(combined, 16000);
+                let formData = new FormData();
+                formData.append("file", wavBlob, "browser_recording.wav");
+                formData.append("room_name", "Phiên Thu Âm Cá Nhân");
+
+                const reqHeaders = {};
+                const token = sessionStorage.getItem('session_token');
+                if (token) reqHeaders["X-Session-Token"] = token;
+                if (WS_TOKEN) reqHeaders["X-Api-Key"] = WS_TOKEN;
+
+                const res = await fetch("/api/meeting/save_browser_recording", {
+                    method: "POST",
+                    headers: reqHeaders,
+                    body: formData,
+                });
+                const data = await res.json();
+
+                if (data.ok) {
+                    hideNotification();
+                    document.getElementById("summaryMeta").textContent =
+                        `Thời lượng: ${Math.round(data.duration_seconds)} giây | Mã phiên: #${data.meeting_id}`;
+                    document.getElementById("summaryText").textContent = data.summary || "(Không có nội dung tóm tắt)";
+                    document.getElementById("txtReportPath").innerHTML = `<code>data/text_reports/CuocHop_${data.meeting_id}.txt</code>`;
+                    document.getElementById("detailLink").href = `/meeting/${data.meeting_id}`;
+
+                    if (data.llm_summary) {
+                        document.getElementById("llmBlock").style.display = "block";
+                        document.getElementById("llmSummaryText").textContent = data.llm_summary;
+                    } else {
+                        document.getElementById("llmBlock").style.display = "none";
+                    }
+                    summaryPanel.style.display = "block";
+                    summaryPanel.scrollIntoView({ behavior: "smooth" });
+                } else {
+                    alert("Lỗi khi lưu cuộc họp: " + (data.error || "Không thể xử lý."));
+                }
+            } catch (err) {
+                alert("Lỗi gửi dữ liệu âm thanh lên server: " + err.message);
+            } finally {
+                startBtn.style.display = "inline-flex";
+                micSourceSelect.disabled = false;
+            }
+        }
+
+        // ================= EVENT LISTENERS =================
+        micSourceSelect.addEventListener("change", (e) => {
+            activeSource = e.target.value;
+            if (activeSource === "server") {
+                connectScreenSocket();
+            } else {
+                if (ws) ws.close();
+                hideNotification();
+            }
+        });
+
+        startBtn.addEventListener("click", async () => {
+            finalTextEl.textContent = "";
+            partialTextEl.textContent = "";
+            segmentLog.innerHTML = `<div id="emptyLogHint" class="segment-bubble" style="border-left-color: #cbd5e1; color: var(--text-muted);"><i>Đang lắng nghe...</i></div>`;
+            summaryPanel.style.display = "none";
+
+            if (activeSource === "server") {
+                try {
+                    const reqHeaders = {};
+                    const token = sessionStorage.getItem('session_token');
+                    if (token) reqHeaders["X-Session-Token"] = token;
+                    if (WS_TOKEN) reqHeaders["X-Api-Key"] = WS_TOKEN;
+                    const res = await fetch("/api/meeting/start", { method: "POST", headers: reqHeaders });
+                    if (!res.ok) return alert("Không thể kết nối Server. Vui lòng bật server Python (`python web/app.py`).");
+                    const data = await res.json();
+                    if (!data.ok) alert(data.error || data.detail || "Có lỗi xảy ra khi bắt đầu.");
+                } catch (err) {
+                    alert("Lỗi kết nối Server! Vui lòng bật cửa sổ Terminal chạy `python web/app.py`.");
+                }
+            } else {
+                startBrowserMicRecording();
+            }
+        });
+
+        stopBtn.addEventListener("click", async () => {
+            if (activeSource === "server") {
+                try {
+                    const reqHeaders = {};
+                    const token = sessionStorage.getItem('session_token');
+                    if (token) reqHeaders["X-Session-Token"] = token;
+                    if (WS_TOKEN) reqHeaders["X-Api-Key"] = WS_TOKEN;
+                    const res = await fetch("/api/meeting/stop", { method: "POST", headers: reqHeaders });
+                    if (!res.ok) return;
+                } catch (err) {
+                    alert("Lỗi kết nối Server.");
+                }
+            } else {
+                stopBrowserMicRecording();
+            }
+        });
+
+        document.addEventListener("DOMContentLoaded", checkAuthSession);
+    </script>
+</body>
+</html>

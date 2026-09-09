@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Studio - Lịch sử Ghi âm & Tóm tắt AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css?v=3.2">
+    <style>
+        /* Auth Modal Overlay & Box */
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px);
+            z-index: 9999; display: flex; align-items: center; justify-content: center;
+        }
+        .modal-box {
+            background: #1e293b; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px; width: 90%; max-width: 420px; padding: 28px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); color: #fff;
+        }
+        .auth-tab-btn {
+            background: transparent; border: none; color: #94a3b8; padding: 8px 16px;
+            font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent;
+        }
+        .auth-tab-btn.active { color: #6366f1; border-bottom-color: #6366f1; }
+        .form-group { margin-bottom: 16px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 13px; color: #cbd5e1; font-weight: 600; }
+        .form-control {
+            width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155;
+            background: #0f172a; color: #fff; font-size: 14px; outline: none; box-sizing: border-box;
+        }
+        .form-control:focus { border-color: #6366f1; }
+        .rename-pencil { cursor: pointer; color: #6366f1; margin-left: 6px; font-size: 13px; }
+        .rename-pencil:hover { color: #818cf8; }
+        .user-badge {
+            display: inline-flex; align-items: center; gap: 8px; background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.3); padding: 6px 12px; border-radius: 20px; color: #a5b4fc; font-size: 13px; font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+    <div class="app-shell">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-brain"></i>
+                </div>
+                <div class="brand-text">
+                    <h2>AI Voice Studio</h2>
+                    <span>Enterprise v3.0</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section-title">Menu Chính</div>
+                <a href="/" class="nav-item active">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Lịch sử ghi âm</span>
+                </a>
+                <a href="/screen" class="nav-item">
+                    <i class="fa-solid fa-microphone"></i>
+                    <span>Studio Ghi âm & Phụ đề</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status-pill">
+                    <div class="status-dot pulse"></div>
+                    <div>
+                        <div style="font-weight:700; color:#fff; font-size:11px;">HỆ THỐNG SẴN SÀNG</div>
+                        <div style="font-size:10px; color:#94a3b8;">Unified AI Engine</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Wrapper -->
+        <div class="app-main">
+            <!-- Header Bar -->
+            <header class="app-header">
+                <button class="mobile-nav-toggle" id="mobileToggle" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+
+                <div class="header-title-group">
+                    <h1>📋 Lịch sử & Nhật ký Thu âm AI</h1>
+                    <p>Quản lý phiên thu âm cá nhân, tóm tắt AI và xuất báo cáo PDF</p>
+                </div>
+
+                <div class="header-actions" style="display:flex; align-items:center; gap:8px;">
+                    <div id="userPill" class="user-badge" style="display:none;">
+                        <i class="fa-solid fa-circle-user"></i>
+                        <span id="userNameDisplay">Tài khoản</span>
+                    </div>
+
+                    <button id="btnLogout" type="button" onclick="handleAuthLogout()" class="btn btn-outline btn-sm" style="display:none; color:#ef4444; border-color:rgba(239,68,68,0.3);" title="Đăng xuất">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="hide-mobile">Đăng xuất</span>
+                    </button>
+
+                    <a href="/screen" class="btn btn-primary btn-sm" title="Bắt đầu thu âm">
+                        <i class="fa-solid fa-microphone"></i>
+                        <span class="hide-mobile">Bắt đầu thu âm</span>
+                    </a>
+                </div>
+            </header>
+
+            <!-- App Content -->
+            <main class="app-content">
+                <!-- Stats Overview Bar -->
+                <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>{{ meetings|length }}</h3>
+                            <p>Tổng số phiên thu âm</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(6, 182, 212, 0.1); color: var(--secondary);">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div class="stat-info">
+                            {% set total_secs = meetings|sum(attribute='duration_seconds') %}
+                            <h3>{{ (total_secs // 60)|int }}m {{ (total_secs % 60)|int }}s</h3>
+                            <p>Tổng thời lượng ghi âm</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter & Controls -->
+                <div class="filter-bar">
+                    <form method="get" action="/" class="search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" name="q" placeholder="Tìm kiếm theo từ khóa nội dung, tiêu đề..." value="{{ query }}">
+                    </form>
+
+                    <div class="view-tabs">
+                        <button type="button" class="view-tab active" id="btnGridView" onclick="switchView('grid')">
+                            <i class="fa-solid fa-grip"></i> Dạng Thẻ
+                        </button>
+                        <button type="button" class="view-tab" id="btnTableView" onclick="switchView('table')">
+                            <i class="fa-solid fa-list"></i> Dạng Bảng
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Meetings Container -->
+                {% if meetings|length == 0 %}
+                    <div class="card empty-state">
+                        <i class="fa-solid fa-inbox"></i>
+                        <h3>Chưa có phiên thu âm nào trong không gian này</h3>
+                        <p style="margin-bottom: 20px;">Khởi tạo phiên thu âm mới trên Studio Ghi âm & Phụ đề.</p>
+                        <a href="/screen" class="btn btn-primary">
+                            <i class="fa-solid fa-microphone"></i> Mở Studio Ghi âm
+                        </a>
+                    </div>
+                {% else %}
+
+                    <!-- Grid Cards View -->
+                    <div class="meetings-grid" id="gridContainer">
+                        {% for m in meetings %}
+                        <div class="meeting-card">
+                            <div class="meeting-card-header">
+                                <div>
+                                    <span class="room-badge">
+                                        <i class="fa-solid fa-microphone"></i> {{ m.room_name }}
+                                    </span>
+                                    <h3 class="meeting-title">Phiên thu âm #{{ m.id }}</h3>
+                                </div>
+                                <span class="badge badge-ended">
+                                    <i class="fa-solid fa-check"></i> Hoàn thành
+                                </span>
+                            </div>
+
+                            <div class="meeting-meta-list">
+                                <div class="meta-item">
+                                    <i class="fa-regular fa-calendar"></i>
+                                    <span>{{ m.created_at[:19] }}</span>
+                                </div>
+                                <div class="meta-item">
+                                    <i class="fa-regular fa-clock"></i>
+                                    <span>{{ (m.duration_seconds // 60)|int }}p {{ (m.duration_seconds % 60)|int }}s</span>
+                                </div>
+                            </div>
+
+                            <div class="summary-snippet">
+                                {{ m.summary[:140] if m.summary else 'Chưa có bản tóm tắt tự động.' }}...
+                            </div>
+
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:6px;">
+                                <a href="/meeting/{{ m.id }}" class="btn btn-primary btn-sm">
+                                    <span>Xem chi tiết</span>
+                                    <i class="fa-solid fa-arrow-right"></i>
+                                </a>
+                                <div style="display:flex; gap:6px;">
+                                    <button type="button" onclick="openRenameModal({{ m.id }}, '{{ m.room_name|escape }}')" class="btn btn-outline btn-sm" title="Đổi tên">
+                                        <i class="fa-solid fa-pen-to-square"></i> Đổi tên
+                                    </button>
+                                    <button type="button" onclick="deleteRecording({{ m.id }})" class="btn btn-danger btn-sm" title="Xóa phiên ghi âm này">
+                                        <i class="fa-solid fa-trash-can"></i> Xóa
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Table View -->
+                    <div class="table-wrapper" id="tableContainer" style="display: none;">
+                        <table class="app-table">
+                            <thead>
+                                <tr>
+                                    <th>Mã ID</th>
+                                    <th>Tên phiên thu âm</th>
+                                    <th>Thời gian</th>
+                                    <th>Thời lượng</th>
+                                    <th>Tóm tắt sơ lược</th>
+                                    <th style="text-align: right;">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in meetings %}
+                                <tr>
+                                    <td style="font-weight:700; color:var(--primary);">#{{ m.id }}</td>
+                                    <td>
+                                        <span class="room-badge">
+                                            <i class="fa-solid fa-microphone"></i> {{ m.room_name }}
+                                            <i class="fa-solid fa-pen-to-square rename-pencil" title="Đổi tên" onclick="openRenameModal({{ m.id }}, '{{ m.room_name|escape }}')"></i>
+                                        </span>
+                                    </td>
+                                    <td>{{ m.created_at[:19] }}</td>
+                                    <td>{{ (m.duration_seconds // 60)|int }}p {{ (m.duration_seconds % 60)|int }}s</td>
+                                    <td style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                        {{ m.summary }}
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <div style="display:inline-flex; gap:6px;">
+                                            <button type="button" onclick="openRenameModal({{ m.id }}, '{{ m.room_name|escape }}')" class="btn btn-outline btn-sm">
+                                                <i class="fa-solid fa-pen-to-square"></i>
+                                            </button>
+                                            <a href="/meeting/{{ m.id }}" class="btn btn-secondary btn-sm">Chi tiết</a>
+                                            <button type="button" onclick="deleteRecording({{ m.id }})" class="btn btn-danger btn-sm">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                {% endif %}
+            </main>
+        </div>
+    </div>
+
+    <!-- AUTH MODAL -->
+    <div id="authModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-box">
+            <div style="display:flex; justify-content:space-around; margin-bottom: 20px; border-bottom: 1px solid #334155;">
+                <button type="button" id="tabLogin" class="auth-tab-btn active" onclick="switchAuthTab('login')">ĐĂNG NHẬP</button>
+                <button type="button" id="tabRegister" class="auth-tab-btn" onclick="switchAuthTab('register')">ĐĂNG KÝ MỚI</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="formLogin" onsubmit="event.preventDefault(); handleAuthLogin();">
+                <div class="form-group">
+                    <label>Email Tài Khoản</label>
+                    <input type="email" id="loginEmail" class="form-control" placeholder="user@gmail.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Mật Khẩu</label>
+                    <input type="password" id="loginPassword" class="form-control" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">
+                    <i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập Vào Studio
+                </button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="formRegister" onsubmit="event.preventDefault(); handleAuthRegister();" style="display: none;">
+                <div class="form-group">
+                    <label>Họ & Tên</label>
+                    <input type="text" id="regFullName" class="form-control" placeholder="Nguyễn Văn A" required>
+                </div>
+                <div class="form-group">
+                    <label>Email Đăng Ký</label>
+                    <input type="email" id="regEmail" class="form-control" placeholder="user@gmail.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Mật Khẩu</label>
+                    <input type="password" id="regPassword" class="form-control" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">
+                    <i class="fa-solid fa-user-plus"></i> Tạo Tài Khoản Mới
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- RENAME MODAL -->
+    <div id="renameModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-box" style="max-width: 380px;">
+            <h3 style="margin-top:0; margin-bottom: 16px; font-size:16px;">✏️ Đổi Tên Phiên Ghi Âm</h3>
+            <input type="hidden" id="renameMeetingId">
+            <div class="form-group">
+                <label>Tên Phiên Thu Âm Mới</label>
+                <input type="text" id="renameInputName" class="form-control" placeholder="Ví dụ: Họp phòng KD 07/09" required>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
+                <button type="button" onclick="closeRenameModal()" class="btn btn-outline btn-sm">Hủy</button>
+                <button type="button" onclick="saveRename()" class="btn btn-primary btn-sm">Lưu Tên Mới</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('mobile-open');
+            if (overlay) overlay.classList.toggle('active');
+        }
+
+        function switchView(view) {
+            const gridContainer = document.getElementById('gridContainer');
+            const tableContainer = document.getElementById('tableContainer');
+            const btnGrid = document.getElementById('btnGridView');
+            const btnTable = document.getElementById('btnTableView');
+
+            if (view === 'grid') {
+                gridContainer.style.display = 'grid';
+                tableContainer.style.display = 'none';
+                btnGrid.classList.add('active');
+                btnTable.classList.remove('active');
+            } else {
+                gridContainer.style.display = 'none';
+                tableContainer.style.display = 'block';
+                btnTable.classList.add('active');
+                btnGrid.classList.remove('active');
+            }
+        }
+
+        // ================= AUTHENTICATION HANDLERS =================
+        function switchAuthTab(tab) {
+            if (tab === 'login') {
+                document.getElementById('formLogin').style.display = 'block';
+                document.getElementById('formRegister').style.display = 'none';
+                document.getElementById('tabLogin').classList.add('active');
+                document.getElementById('tabRegister').classList.remove('active');
+            } else {
+                document.getElementById('formLogin').style.display = 'none';
+                document.getElementById('formRegister').style.display = 'block';
+                document.getElementById('tabRegister').classList.add('active');
+                document.getElementById('tabLogin').classList.remove('active');
+            }
+        }
+
+        async function checkAuthSession() {
+            // Ephemeral session storage: Token clears on browser tab close!
+            const token = sessionStorage.getItem('session_token');
+            if (!token) {
+                document.getElementById('authModal').style.display = 'flex';
+                return;
+            }
+            try {
+                const res = await fetch('/api/auth/me', {
+                    headers: { 'X-Session-Token': token }
+                });
+                const data = await res.json();
+                if (data.authenticated) {
+                    document.getElementById('authModal').style.display = 'none';
+                    document.getElementById('userPill').style.display = 'inline-flex';
+                    document.getElementById('btnLogout').style.display = 'inline-flex';
+                    document.getElementById('userNameDisplay').innerText = data.user.full_name || data.user.email;
+                } else {
+                    sessionStorage.removeItem('session_token');
+                    document.getElementById('authModal').style.display = 'flex';
+                }
+            } catch (err) {
+                document.getElementById('authModal').style.display = 'flex';
+            }
+        }
+
+        async function handleAuthLogin() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    sessionStorage.setItem('session_token', data.token);
+                    document.cookie = `session_token=${data.token}; path=/`;
+                    window.location.reload();
+                } else {
+                    alert("Lỗi đăng nhập: " + (data.error || "Mật khẩu không đúng."));
+                }
+            } catch (err) {
+                alert("Lỗi kết nối máy chủ: " + err.message);
+            }
+        }
+
+        async function handleAuthRegister() {
+            const full_name = document.getElementById('regFullName').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ full_name, email, password })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    sessionStorage.setItem('session_token', data.token);
+                    document.cookie = `session_token=${data.token}; path=/`;
+                    alert("Đăng ký tài khoản thành công!");
+                    window.location.reload();
+                } else {
+                    alert("Lỗi đăng ký: " + (data.error || "Email đã tồn tại."));
+                }
+            } catch (err) {
+                alert("Lỗi kết nối máy chủ: " + err.message);
+            }
+        }
+
+        async function handleAuthLogout() {
+            const token = sessionStorage.getItem('session_token');
+            if (token) {
+                try {
+                    await fetch('/api/auth/logout', {
+                        method: 'POST',
+                        headers: { 'X-Session-Token': token }
+                    });
+                } catch(e){}
+            }
+            sessionStorage.removeItem('session_token');
+            document.cookie = "session_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            window.location.reload();
+        }
+
+        // ================= RENAME MODAL HANDLERS =================
+        function openRenameModal(id, currentName) {
+            document.getElementById('renameMeetingId').value = id;
+            document.getElementById('renameInputName').value = currentName;
+            document.getElementById('renameModal').style.display = 'flex';
+        }
+
+        function closeRenameModal() {
+            document.getElementById('renameModal').style.display = 'none';
+        }
+
+        async function saveRename() {
+            const id = document.getElementById('renameMeetingId').value;
+            const newName = document.getElementById('renameInputName').value;
+            const token = sessionStorage.getItem('session_token');
+            if (!newName.trim()) return alert("Tên phiên ghi âm không được để trống.");
+
+            try {
+                const res = await fetch(`/api/meeting/rename/${id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Token': token || ''
+                    },
+                    body: JSON.stringify({ room_name: newName })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    closeRenameModal();
+                    window.location.reload();
+                } else {
+                    alert("Lỗi đổi tên: " + (data.error || "Không thể đổi tên."));
+                }
+            } catch (err) {
+                alert("Lỗi kết nối: " + err.message);
+            }
+        }
+
+        async function deleteRecording(id) {
+            const token = sessionStorage.getItem('session_token');
+            if (!confirm(`Bạn có chắc chắn muốn xóa phiên ghi âm #${id}?`)) return;
+            try {
+                const res = await fetch(`/api/meeting/delete/${id}`, {
+                    method: 'POST',
+                    headers: { 'X-Session-Token': token || '' }
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    alert(data.message);
+                    window.location.reload();
+                } else {
+                    alert("Lỗi xóa: " + (data.error || "Không thể xóa."));
+                }
+            } catch (err) {
+                alert("Lỗi kết nối máy chủ: " + err.message);
+            }
+        }
+
+        // Run Auth check on page load
+        document.addEventListener("DOMContentLoaded", checkAuthSession);
+    </script>
+</body>
+</html>

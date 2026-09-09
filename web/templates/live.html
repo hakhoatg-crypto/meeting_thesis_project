@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Caption Studio - AI Meeting</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-shell">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-brain"></i>
+                </div>
+                <div class="brand-text">
+                    <h2>AI Meeting Hub</h2>
+                    <span>Smart Minutes v2.5</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section-title">Menu Chính</div>
+                <a href="/" class="nav-item">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Danh sách cuộc họp</span>
+                </a>
+                <a href="/screen" class="nav-item">
+                    <i class="fa-solid fa-desktop"></i>
+                    <span>Màn hình Phòng họp</span>
+                </a>
+                <a href="/live" class="nav-item active">
+                    <i class="fa-solid fa-microphone-lines"></i>
+                    <span>Live Caption (Web Mic)</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status-pill">
+                    <div class="status-dot pulse"></div>
+                    <div>
+                        <div style="font-weight:700; color:#fff; font-size:11px;">BROWSER MIC MODE</div>
+                        <div style="font-size:10px; color:#94a3b8;">Vosk Real-time ASR</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Wrapper -->
+        <div class="app-main">
+            <!-- Header Bar -->
+            <header class="app-header">
+                <button class="mobile-nav-toggle" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+
+                <div class="header-title-group">
+                    <h1>🎙️ Live Caption Studio</h1>
+                    <p>Chuyển đổi giọng nói từ Microphone trình duyệt thành phụ đề thời gian thực (Streaming ASR)</p>
+                </div>
+
+                <div class="header-actions">
+                    <span id="status" class="badge badge-ended">
+                        <i class="fa-solid fa-circle"></i> Chưa bắt đầu
+                    </span>
+                </div>
+            </header>
+
+            <!-- App Content -->
+            <main class="app-content">
+                <!-- Studio Card -->
+                <div class="studio-stage">
+                    <div class="stage-header">
+                        <div class="stage-title">
+                            <div class="audio-visualizer" id="visualizer" style="display: none;">
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                            </div>
+                            <h2>🔴 Khung Phụ Đề Trực Tiếp (Browser Mic)</h2>
+                        </div>
+
+                        <div class="controls" style="display:flex; gap:10px;">
+                            <button type="button" class="btn btn-outline" style="color:#fff; border-color:rgba(255,255,255,0.3);" onclick="changeFontSize(-2)" title="Giảm cỡ chữ">
+                                <i class="fa-solid fa-font"></i> -
+                            </button>
+                            <button type="button" class="btn btn-outline" style="color:#fff; border-color:rgba(255,255,255,0.3);" onclick="changeFontSize(2)" title="Tăng cỡ chữ">
+                                <i class="fa-solid fa-font"></i> +
+                            </button>
+                            <button type="button" class="btn btn-outline" style="color:#fff; border-color:rgba(255,255,255,0.3);" onclick="copyCaptionText()" title="Sao chép văn bản">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                            <button id="startBtn" class="btn btn-primary btn-lg">
+                                <i class="fa-solid fa-microphone"></i>
+                                <span>Bắt đầu nói</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Caption Stage -->
+                    <div id="captionBox" class="caption-stage-box" style="min-height: 280px; font-size: 24px;">
+                        <span id="finalText" class="caption-final"></span>
+                        <span id="partialText" class="caption-partial"></span>
+                        <div id="emptyHint" class="caption-empty-hint" style="color:#64748b;">
+                            <i class="fa-solid fa-microphone-lines"></i>
+                            <span>Bấm nút "Bắt đầu nói" và cấp quyền truy cập Micro để hiển thị phụ đề...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>💡 Hướng dẫn sử dụng Live Caption Studio</h3>
+                    <p style="color:var(--text-muted); font-size:14px; margin-top:6px; line-height:1.6;">
+                        Chế độ Live Caption thích hợp để thử nghiệm trực tiếp trên laptop/máy tính cá nhân. Âm thanh từ Microphone của trình duyệt sẽ được nén dưới dạng PCM 16-bit 16kHz và truyền trực tiếp qua WebSocket tới model Vosk trên server để nhận diện realtime.
+                    </p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let audioContext = null;
+        let mediaStream = null;
+        let processor = null;
+        let isRecording = false;
+        let currentFontSize = 24;
+
+        const startBtn = document.getElementById("startBtn");
+        const statusEl = document.getElementById("status");
+        const finalTextEl = document.getElementById("finalText");
+        const partialTextEl = document.getElementById("partialText");
+        const emptyHint = document.getElementById("emptyHint");
+        const visualizer = document.getElementById("visualizer");
+        const captionBox = document.getElementById("captionBox");
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('mobile-open');
+        }
+
+        function changeFontSize(delta) {
+            currentFontSize = Math.max(16, Math.min(40, currentFontSize + delta));
+            captionBox.style.fontSize = currentFontSize + "px";
+        }
+
+        function copyCaptionText() {
+            const text = finalTextEl.textContent + " " + partialTextEl.textContent;
+            if (!text.trim()) return alert("Chưa có văn bản để sao chép!");
+            navigator.clipboard.writeText(text);
+            alert("Đã sao chép nội dung phụ đề!");
+        }
+
+        function floatTo16BitPCM(float32Array) {
+            const buffer = new ArrayBuffer(float32Array.length * 2);
+            const view = new DataView(buffer);
+            let offset = 0;
+            for (let i = 0; i < float32Array.length; i++, offset += 2) {
+                let s = Math.max(-1, Math.min(1, float32Array[i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+            return buffer;
+        }
+
+        async function startRecording() {
+            try {
+                const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+                ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws/live-transcribe?token={{ ws_token }}`);
+
+                ws.onopen = () => {
+                    statusEl.innerHTML = '<i class="fa-solid fa-microphone"></i> Đã kết nối. Đang lắng nghe...';
+                    statusEl.className = "badge badge-listening";
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.type === "error") {
+                        statusEl.innerHTML = "Lỗi: " + data.text;
+                        statusEl.className = "badge badge-summarizing";
+                        return;
+                    }
+                    if (data.type === "final" && data.text) {
+                        finalTextEl.textContent += data.text + ". ";
+                        partialTextEl.textContent = "";
+                        if (emptyHint) emptyHint.style.display = "none";
+                    } else if (data.type === "partial") {
+                        partialTextEl.textContent = data.text;
+                        if (data.text && emptyHint) emptyHint.style.display = "none";
+                    }
+                };
+
+                ws.onerror = () => {
+                    statusEl.innerHTML = "Lỗi kết nối WebSocket.";
+                    statusEl.className = "badge badge-summarizing";
+                };
+
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new AudioContext({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(mediaStream);
+
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                processor.onaudioprocess = (e) => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        const inputData = e.inputBuffer.getChannelData(0);
+                        const pcmData = floatTo16BitPCM(inputData);
+                        ws.send(pcmData);
+                    }
+                };
+
+                isRecording = true;
+                startBtn.innerHTML = '<i class="fa-solid fa-square"></i> <span>Dừng lại</span>';
+                startBtn.className = "btn btn-danger btn-lg";
+                if (visualizer) visualizer.style.display = "flex";
+                if (emptyHint) emptyHint.style.display = "none";
+
+            } catch (err) {
+                alert("Không thể truy cập Microphone: " + err.message);
+            }
+        }
+
+        function stopRecording() {
+            if (processor) processor.disconnect();
+            if (audioContext) audioContext.close();
+            if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+            if (ws) ws.close();
+
+            isRecording = false;
+            startBtn.innerHTML = '<i class="fa-solid fa-microphone"></i> <span>Bắt đầu nói</span>';
+            startBtn.className = "btn btn-primary btn-lg";
+            statusEl.innerHTML = '<i class="fa-solid fa-circle"></i> Đã dừng';
+            statusEl.className = "badge badge-ended";
+            if (visualizer) visualizer.style.display = "none";
+        }
+
+        startBtn.addEventListener("click", () => {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+    </script>
+</body>
+</html>

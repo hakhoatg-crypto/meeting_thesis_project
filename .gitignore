@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.env
+.env
+serviceAccountKey.json
+database.db
+data/*.db
+models/
+nltk_data/
+data/audio/*
+.vscode/

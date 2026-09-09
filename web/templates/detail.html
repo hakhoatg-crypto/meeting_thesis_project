@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi tiết Thu âm #{{ meeting.id }} - AI Studio</title>
+    <link rel="stylesheet" href="/static/style.css?v=3.0">
+</head>
+<body>
+    <div class="app-shell">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-brain"></i>
+                </div>
+                <div class="brand-text">
+                    <h2>AI Voice Studio</h2>
+                    <span>Smart Voice v2.5</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section-title">Menu Chính</div>
+                <a href="/" class="nav-item">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Lịch sử ghi âm</span>
+                </a>
+                <a href="/screen" class="nav-item">
+                    <i class="fa-solid fa-microphone"></i>
+                    <span>Studio Ghi âm & Phụ đề</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-status-pill">
+                    <div class="status-dot pulse"></div>
+                    <div>
+                        <div style="font-weight:700; color:#fff; font-size:11px;">EXECUTIVE REPORT</div>
+                        <div style="font-size:10px; color:#94a3b8;">Session ID #{{ meeting.id }}</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Wrapper -->
+        <div class="app-main">
+            <!-- Header Bar -->
+            <header class="app-header">
+                <button class="mobile-nav-toggle" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+
+                <div class="header-title-group">
+                    <h1>📄 Báo cáo Chi tiết Phiên Thu âm #{{ meeting.id }}</h1>
+                    <p>{{ meeting.room_name }} &bull; Khởi tạo lúc {{ meeting.created_at[:19] }}</p>
+                </div>
+
+                <div class="header-actions">
+                    <a href="/" class="btn btn-outline">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>Quay lại lịch sử</span>
+                    </a>
+                </div>
+            </header>
+
+            <!-- App Content -->
+            <main class="app-content">
+                <!-- Metadata Stats Bar -->
+                <div class="stats-grid" style="margin-bottom: 24px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fa-solid fa-microphone"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>{{ meeting.room_name }}</h3>
+                            <p>Tên phiên thu âm</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(6, 182, 212, 0.1); color: var(--secondary);">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>{{ (meeting.duration_seconds // 60)|int }}p {{ (meeting.duration_seconds % 60)|int }}s</h3>
+                            <p>Thời lượng ghi nhận</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Audio Player Card -->
+                <div class="audio-player-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <h3 style="font-size:16px; margin:0;"><i class="fa-solid fa-file-audio" style="color:var(--primary); margin-right:8px;"></i> Âm thanh Ghi âm Gốc</h3>
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn btn-outline btn-sm" onclick="setSpeed(1)">1x</button>
+                            <button class="btn btn-outline btn-sm" onclick="setSpeed(1.25)">1.25x</button>
+                            <button class="btn btn-outline btn-sm" onclick="setSpeed(1.5)">1.5x</button>
+                            <button class="btn btn-outline btn-sm" onclick="setSpeed(2)">2x</button>
+                        </div>
+                    </div>
+                    <audio id="audioPlayer" controls src="/audio/{{ meeting.id }}"></audio>
+                </div>
+
+                <!-- AI Summary Comparison Matrix -->
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h2><i class="fa-solid fa-scale-balanced" style="color:var(--primary);"></i> So sánh 2 Phương pháp Tóm tắt AI</h2>
+                        <span style="font-size:13px; color:var(--text-muted);">Trích xuất trực tiếp vs Sinh văn bản AI</span>
+                    </div>
+
+                    <div class="compare-grid">
+                        <!-- Method 1: TextRank -->
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <h3 style="font-size:14px; color:var(--text-heading);">
+                                    <i class="fa-solid fa-list-check" style="color:var(--primary);"></i> Phương pháp 1: TextRank (Trích xuất)
+                                    {% if meeting.summary_time_seconds %}
+                                    <span class="time-badge"><i class="fa-solid fa-bolt"></i> {{ "%.2f"|format(meeting.summary_time_seconds) }}s</span>
+                                    {% endif %}
+                                </h3>
+                                <button class="btn btn-outline btn-sm" onclick="copyText('textrankText')">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                            <div class="summary-box" id="textrankText">{{ meeting.summary }}</div>
+                        </div>
+
+                        <!-- Method 2: LLM GPT -->
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <h3 style="font-size:14px; color:var(--text-heading);">
+                                    <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--success);"></i> Phương pháp 2: LLM GPT (Sinh văn bản)
+                                    {% if meeting.llm_summary_time_seconds %}
+                                    <span class="time-badge" style="background:var(--success-bg); color:var(--success);"><i class="fa-solid fa-bolt"></i> {{ "%.2f"|format(meeting.llm_summary_time_seconds) }}s</span>
+                                    {% endif %}
+                                </h3>
+                                <button class="btn btn-outline btn-sm" onclick="copyText('llmText')">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                            {% if meeting.llm_summary %}
+                            <div class="summary-box llm" id="llmText">{{ meeting.llm_summary }}</div>
+                            {% else %}
+                            <div class="summary-box empty" id="llmText">
+                                <i class="fa-solid fa-circle-info"></i> Chưa bật tính năng LLM Tóm tắt (có thể bật trong <code>config.py: ENABLE_LLM_SUMMARY</code>).
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Full Transcript Card -->
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+                        <h2><i class="fa-solid fa-align-left" style="color:var(--primary);"></i> Văn bản Biên bản Đầy đủ (Full Transcript)</h2>
+                        <div style="display:flex; gap:10px;">
+                            <div class="search-box" style="min-width:200px;">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="transcriptSearch" placeholder="Lọc từ khóa trong văn bản..." oninput="filterTranscript()">
+                            </div>
+                            <button class="btn btn-outline btn-sm" onclick="copyText('fullTranscriptBox')">
+                                <i class="fa-regular fa-copy"></i> Sao chép
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="summary-box" id="fullTranscriptBox" style="background:#f8fafc; font-size:15px; line-height:1.8; max-height:450px; overflow-y:auto;">
+                        {{ meeting.transcript }}
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('mobile-open');
+        }
+
+        function setSpeed(speed) {
+            const player = document.getElementById('audioPlayer');
+            player.playbackRate = speed;
+        }
+
+        function copyText(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            if (!text.trim()) return alert("Không có nội dung để sao chép!");
+            navigator.clipboard.writeText(text);
+            alert("Đã sao chép văn bản vào bộ nhớ tạm!");
+        }
+
+        function filterTranscript() {
+            const query = document.getElementById('transcriptSearch').value.toLowerCase();
+            const transcriptBox = document.getElementById('fullTranscriptBox');
+            const originalText = `{{ meeting.transcript }}`;
+
+            if (!query) {
+                transcriptBox.innerText = originalText;
+                return;
+            }
+
+            const lines = originalText.split('\n');
+            const filteredLines = lines.filter(line => line.toLowerCase().includes(query));
+            transcriptBox.innerText = filteredLines.length > 0 ? filteredLines.join('\n') : "(Không tìm thấy dòng văn bản nào khớp với từ khóa)";
+        }
+    </script>
+</body>
+</html>
