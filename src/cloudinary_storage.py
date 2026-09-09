@@ -93,3 +93,46 @@ def delete_audio(public_id: str) -> bool:
     import cloudinary.uploader
     res = cloudinary.uploader.destroy(public_id, resource_type="video", type="private")
     return res.get("result") == "ok"
+
+
+def upload_db_backup(data_dict: dict) -> bool:
+    """Upload database backup JSON (users + meetings metadata) to Cloudinary."""
+    if not _ensure_configured():
+        return False
+    try:
+        import json
+        import cloudinary.uploader
+        payload = json.dumps(data_dict, ensure_ascii=False).encode('utf-8')
+        cloudinary.uploader.upload(
+            payload,
+            resource_type="raw",
+            public_id="backup/db_backup.json",
+            overwrite=True,
+        )
+        return True
+    except Exception as e:
+        print(f"[cloudinary] DB backup error: {e}")
+        return False
+
+
+def download_db_backup() -> dict | None:
+    """Download database backup JSON from Cloudinary."""
+    if not _ensure_configured():
+        return None
+    try:
+        import json
+        import urllib.request
+        import cloudinary.utils
+        url, _ = cloudinary.utils.cloudinary_url(
+            "backup/db_backup.json",
+            resource_type="raw",
+            secure=True,
+        )
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=10) as response:
+            content = response.read().decode('utf-8')
+            return json.loads(content)
+    except Exception as e:
+        print(f"[cloudinary] DB restore download error: {e}")
+        return None
+
