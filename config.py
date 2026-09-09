@@ -39,7 +39,7 @@ MIC_DEVICE_INDEX = None            # None = dung mic mac dinh; hoac dien so inde
 # Internet on dinh trong suot cuoc hop va tinh phi theo thoi gian ket noi.
 # Dang ky lay API key tai https://www.assemblyai.com/ , dien vao file .env
 # (bien ASSEMBLYAI_API_KEY) - KHONG dien truc tiep vao day.
-ASSEMBLYAI_API_KEY = os.environ.get("ASSEMBLYAI_API_KEY", "")
+ASSEMBLYAI_API_KEY = os.environ.get("ASSEMBLYAI_API_KEY", "e30f0a99b4354aa3be1180eb45063d04")
 ASSEMBLYAI_LANGUAGE_CODE = os.environ.get("ASSEMBLYAI_LANGUAGE_CODE", "vi")
 # True = dung AssemblyAI cho ca cuoc hop chinh; False = quay lai Whisper local cu.
 USE_ASSEMBLYAI = bool(ASSEMBLYAI_API_KEY)
@@ -92,12 +92,9 @@ ALLOWED_ORIGINS = [o.strip() for o in _origins_env.split(",") if o.strip()] or [
 
 
 # ============ CAU HINH LUU TRU CLOUDINARY (moi tai khoan mot folder rieng) ============
-# Lay 3 gia tri nay tai Dashboard Cloudinary sau khi dang ky - dien vao file .env,
-# KHONG dien truc tiep vao day. Neu de trong, he thong tu dong quay ve luu file
-# audio tren o dia local nhu truoc (xem web/app.py).
-CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
-CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY", "")
-CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "")
+CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "djtd0hhv9")
+CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY", "468978596685556")
+CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "AM9XlmE6sBqx20pTGuL5_vpM0Vo")
 
 # ============ CAU HINH WEB DASHBOARD ============
 WEB_HOST = "0.0.0.0"
