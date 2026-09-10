@@ -286,13 +286,18 @@ screen_connections: list = []
 
 async def _broadcast_loop():
     while True:
-        event = await asyncio.to_thread(pipeline_event_queue.get)
-        for ws in list(screen_connections):
-            try:
-                await ws.send_json(event)
-            except Exception:
-                if ws in screen_connections:
-                    screen_connections.remove(ws)
+        try:
+            while not pipeline_event_queue.empty():
+                event = pipeline_event_queue.get_nowait()
+                for ws in list(screen_connections):
+                    try:
+                        await ws.send_json(event)
+                    except Exception:
+                        if ws in screen_connections:
+                            screen_connections.remove(ws)
+        except Exception:
+            pass
+        await asyncio.sleep(0.2)
 
 
 @app.on_event("startup")
