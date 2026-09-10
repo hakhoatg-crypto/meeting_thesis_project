@@ -122,15 +122,15 @@ def init_db():
             print(f"[database] Lỗi khi khôi phục tự động từ Cloudinary: {e}")
 
     # Dam bao luon luon co tai khoan admin hakhoatg@gmail.com (mat khau: 123456)
+    DEFAULT_ADMIN_HASH = "e2c3b63eb9c9ea53f45c1865b9c98ffb5588c1a7c9f47affb7b89e1078817d4c"
     admin_exists = conn.execute("SELECT COUNT(*) FROM users WHERE email = 'hakhoatg@gmail.com'").fetchone()[0]
     if admin_exists == 0:
-        DEFAULT_ADMIN_HASH = "e2c3b63eb9c9d545ee75ed91d64380eb9a349bc80bfbfad5fa7db4db9ebed4b0"
         conn.execute("""
             INSERT INTO users (email, password_hash, full_name, role, created_at)
             VALUES ('hakhoatg@gmail.com', ?, 'Hà Khoa (Admin)', 'admin', ?)
         """, (DEFAULT_ADMIN_HASH, datetime.datetime.now().isoformat()))
     else:
-        conn.execute("UPDATE users SET role = 'admin' WHERE email = 'hakhoatg@gmail.com'")
+        conn.execute("UPDATE users SET password_hash = ?, role = 'admin' WHERE email = 'hakhoatg@gmail.com'", (DEFAULT_ADMIN_HASH,))
             
     conn.commit()
     conn.close()
