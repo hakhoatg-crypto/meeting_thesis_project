@@ -303,17 +303,20 @@ async def _broadcast_loop():
 @app.on_event("startup")
 async def startup():
     database.init_db()
-
-    global pipeline
-    try:
-        from src.live_meeting_pipeline import MeetingPipeline
-        pipeline = MeetingPipeline(pipeline_event_queue)
-        print("[web/app] MeetingPipeline san sang.")
-    except Exception as e:
-        print(f"[web/app] Bo qua MeetingPipeline: {e}")
-        pipeline = None
-
     asyncio.create_task(_broadcast_loop())
+
+    def _init_pipeline_bg():
+        global pipeline
+        try:
+            from src.live_meeting_pipeline import MeetingPipeline
+            pipeline = MeetingPipeline(pipeline_event_queue)
+            print("[web/app] MeetingPipeline sẵn sàng.")
+        except Exception as e:
+            print(f"[web/app] Bỏ qua MeetingPipeline (cloud/headless): {e}")
+            pipeline = None
+
+    import threading
+    threading.Thread(target=_init_pipeline_bg, daemon=True).start()
 
 
 @app.websocket("/ws/meeting-screen")
