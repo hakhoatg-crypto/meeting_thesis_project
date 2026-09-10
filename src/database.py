@@ -161,7 +161,7 @@ def restore_db_from_cloud():
             conn.execute("UPDATE users SET password_hash = ?, role = 'admin' WHERE email = 'hakhoatg@gmail.com'", ("e2c3b63eb9c9ea53f45c1865b9c98ffb5588c1a7c9f47affb7b89e1078817d4c",))
             conn.commit()
             conn.close()
-            print(f"[database] restore_db_from_cloud: Đã khôi phục {len(backup_data.get('users', []))} người dùng.")
+            print(f"[database] restore_db_from_cloud: Restored {len(backup_data.get('users', []))} users from Cloudinary.")
     except Exception as e:
         print(f"[database] restore_db_from_cloud error: {e}")
 
