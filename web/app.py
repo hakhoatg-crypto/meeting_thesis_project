@@ -55,6 +55,14 @@ from src import database
 
 app = FastAPI(title="Hệ thống AI Voice Studio - Quản lý Phân quyền & Phiên ghi âm")
 
+@app.on_event("startup")
+def on_startup():
+    try:
+        database.init_db()
+        print("[app] Database initialized on startup successfully.")
+    except Exception as e:
+        print(f"[app] Startup DB init error: {e}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://meeting-studio-khoa.web.app", "http://localhost:8000", "http://127.0.0.1:8000"],
