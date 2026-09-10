@@ -76,6 +76,14 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(CURRENT_DIR, "templates"))
 app.mount("/static", StaticFiles(directory=os.path.join(CURRENT_DIR, "static")), name="static")
 
+def render_template(name: str, context: dict, request: Request):
+    """Hàm render template tương thích mọi phiên bản FastAPI / Starlette."""
+    context["request"] = request
+    try:
+        return templates.TemplateResponse(request=request, name=name, context=context)
+    except TypeError:
+        return templates.TemplateResponse(name, context)
+
 # ================= AUTHENTICATION & SESSION MANAGEMENT =================
 # Bộ nhớ Session tạm thời (Ephemeral Session Storage) -> Xóa khi tắt app/browser
 ACTIVE_SESSIONS: dict[str, dict] = {}
@@ -356,12 +364,11 @@ def index(request: Request, q: str = Query(default="")):
     else:
         meetings = []
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return render_template("index.html", {
         "meetings": meetings,
         "query": q,
         "user": user,
-    })
+    }, request)
 
 
 @app.get("/api/meetings")
@@ -378,11 +385,10 @@ def meeting_detail(request: Request, meeting_id: int):
     user = get_current_user_from_request(request)
     user_id = user["id"] if user else None
     meeting = database.get_meeting_by_id(meeting_id, user_id=user_id)
-    return templates.TemplateResponse("detail.html", {
-        "request": request,
+    return render_template("detail.html", {
         "meeting": meeting,
         "user": user,
-    })
+    }, request)
 
 
 @app.get("/audio/{meeting_id}")
@@ -434,11 +440,10 @@ def delete_meeting_endpoint(request: Request, meeting_id: int):
 @app.get("/screen", response_class=HTMLResponse)
 def screen_page(request: Request):
     user = get_current_user_from_request(request)
-    return templates.TemplateResponse("screen.html", {
-        "request": request,
+    return render_template("screen.html", {
         "pipeline_ready": pipeline is not None,
         "user": user,
-    })
+    }, request)
 
 
 @app.post("/api/meeting/save_browser_recording")
