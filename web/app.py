@@ -163,28 +163,30 @@ async def login(request: Request):
         email = data.get("email", "").strip()
         password = data.get("password", "")
 
-        if not email or not password:
-            return JSONResponse({"ok": False, "error": "Vui lòng nhập Email và Mật khẩu."}, status_code=400)
+        # Khóa cứng tài khoản Admin mặc định để luôn đăng nhập 100% thành công
+        if email.lower() == "hakhoatg@gmail.com" and password == "123456":
+            current_hash = hash_password("123456")
+            user = database.get_user_by_email("hakhoatg@gmail.com")
+            if not user:
+                database.create_user("hakhoatg@gmail.com", current_hash, "Hà Khoa (Admin)")
+                user = database.get_user_by_email("hakhoatg@gmail.com")
+            else:
+                database.update_user_password(user["id"], current_hash)
+            
+            token = uuid.uuid4().hex
+            user_id = user["id"] if (user and "id" in user) else 1
+            user_data = {"id": user_id, "email": "hakhoatg@gmail.com", "full_name": "Hà Khoa (Admin)", "role": "admin"}
+            ACTIVE_SESSIONS[token] = {**user_data, "_created_at": time.time()}
+            return {"ok": True, "message": "Đăng nhập Admin thành công!", "token": token, "user": user_data}
 
         user = database.get_user_by_email(email)
-        if not user and email.lower() == "hakhoatg@gmail.com" and password == "123456":
-            database.create_user("hakhoatg@gmail.com", hash_password("123456"), "Hà Khoa (Admin)")
-            user = database.get_user_by_email(email)
-
         if not user:
             return JSONResponse({"ok": False, "error": "Email hoặc mật khẩu không chính xác."}, status_code=401)
 
         stored_hash = user["password_hash"]
         current_hash = hash_password(password)
 
-        valid = (stored_hash == current_hash)
-
-        # Fallback tự động sửa lỗi cho Admin mặc định
-        if not valid and email.lower() == "hakhoatg@gmail.com" and password == "123456":
-            valid = True
-            database.update_user_password(user["id"], current_hash)
-
-        if not valid:
+        if stored_hash != current_hash:
             return JSONResponse({"ok": False, "error": "Email hoặc mật khẩu không chính xác."}, status_code=401)
 
         # Tạo Session Token mới
