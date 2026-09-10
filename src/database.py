@@ -169,25 +169,41 @@ def restore_db_from_cloud():
 def get_user_by_email(email):
     email_clean = email.strip().lower()
     conn = get_connection()
-    row = conn.execute("SELECT * FROM users WHERE email = ?", (email_clean,)).fetchone()
+    row = conn.execute("SELECT * FROM users WHERE LOWER(email) = ?", (email_clean,)).fetchone()
     conn.close()
     if not row:
         restore_db_from_cloud()
         conn = get_connection()
-        row = conn.execute("SELECT * FROM users WHERE email = ?", (email_clean,)).fetchone()
+        row = conn.execute("SELECT * FROM users WHERE LOWER(email) = ?", (email_clean,)).fetchone()
         conn.close()
     
+    DEFAULT_ADMIN_HASH = "e2c3b63eb9c9ea53f45c1865b9c98ffb5588c1a7c9f47affb7b89e1078817d4c"
+
+    if not row and email_clean == "hakhoatg@gmail.com":
+        try:
+            conn = get_connection()
+            conn.execute("""
+                INSERT INTO users (email, password_hash, full_name, role, created_at)
+                VALUES ('hakhoatg@gmail.com', ?, 'Hà Khoa (Admin)', 'admin', ?)
+            """, (DEFAULT_ADMIN_HASH, datetime.datetime.now().isoformat()))
+            conn.commit()
+            row = conn.execute("SELECT * FROM users WHERE LOWER(email) = 'hakhoatg@gmail.com'").fetchone()
+            conn.close()
+            trigger_cloud_sync()
+        except Exception as e:
+            print(f"[get_user_by_email create admin error] {e}")
+
     if row:
         user_dict = dict(row)
         if email_clean == "hakhoatg@gmail.com":
-            DEFAULT_ADMIN_HASH = "e2c3b63eb9c9ea53f45c1865b9c98ffb5588c1a7c9f47affb7b89e1078817d4c"
-            if user_dict.get("password_hash") != DEFAULT_ADMIN_HASH:
+            if user_dict.get("password_hash") != DEFAULT_ADMIN_HASH or user_dict.get("role") != "admin":
                 try:
                     conn = get_connection()
-                    conn.execute("UPDATE users SET password_hash = ?, role = 'admin' WHERE email = 'hakhoatg@gmail.com'", (DEFAULT_ADMIN_HASH,))
+                    conn.execute("UPDATE users SET password_hash = ?, role = 'admin' WHERE LOWER(email) = 'hakhoatg@gmail.com'", (DEFAULT_ADMIN_HASH,))
                     conn.commit()
                     conn.close()
                     user_dict["password_hash"] = DEFAULT_ADMIN_HASH
+                    user_dict["role"] = "admin"
                     trigger_cloud_sync()
                 except Exception as e:
                     print(f"[get_user_by_email fix admin error] {e}")
