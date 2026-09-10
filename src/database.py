@@ -140,8 +140,15 @@ def create_user(email, password_hash, full_name=None):
         return False, None, str(e)
 
 
+_restored_from_cloud_done = False
+
+
 def restore_db_from_cloud():
-    """Tải và khôi phục cơ sở dữ liệu từ Cloudinary nếu chưa có."""
+    """Tải và khôi phục cơ sở dữ liệu từ Cloudinary (chỉ chạy 1 lần duy nhất khi khởi động)."""
+    global _restored_from_cloud_done
+    if _restored_from_cloud_done:
+        return
+    _restored_from_cloud_done = True
     try:
         from src import cloudinary_storage
         backup_data = cloudinary_storage.download_db_backup()
@@ -158,7 +165,7 @@ def restore_db_from_cloud():
                     INSERT OR REPLACE INTO meetings (id, user_id, room_name, audio_path, transcript, summary, summary_time_seconds, llm_summary, llm_summary_time_seconds, duration_seconds, language_confidence, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (m.get("id"), m.get("user_id", 1), m.get("room_name"), m.get("audio_path"), m.get("transcript"), m.get("summary"), m.get("summary_time_seconds"), m.get("llm_summary"), m.get("llm_summary_time_seconds"), m.get("duration_seconds"), m.get("language_confidence"), m.get("created_at")))
-            conn.execute("UPDATE users SET password_hash = ?, role = 'admin' WHERE email = 'hakhoatg@gmail.com'", ("e2c3b63eb9c9ea53f45c1865b9c98ffb5588c1a7c9f47affb7b89e1078817d4c",))
+            conn.execute("UPDATE users SET password_hash = ?, role = 'admin' WHERE LOWER(email) = 'hakhoatg@gmail.com'", ("e2c3b63eb9c9ea53f45c1865b9c98ffb5588c1a7c9f47affb7b89e1078817d4c",))
             conn.commit()
             conn.close()
             print(f"[database] restore_db_from_cloud: Restored {len(backup_data.get('users', []))} users from Cloudinary.")
