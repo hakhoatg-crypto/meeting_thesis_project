@@ -108,13 +108,13 @@ def init_db():
             if backup_data and "users" in backup_data and len(backup_data["users"]) > 0:
                 for u in backup_data.get("users", []):
                     conn.execute("""
-                        INSERT OR IGNORE INTO users (id, email, password_hash, full_name, role, created_at)
+                        INSERT OR REPLACE INTO users (id, email, password_hash, full_name, role, created_at)
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (u.get("id"), u.get("email"), u.get("password_hash"), u.get("full_name"), u.get("role", "user"), u.get("created_at")))
                 
                 for m in backup_data.get("meetings", []):
                     conn.execute("""
-                        INSERT OR IGNORE INTO meetings (id, user_id, room_name, audio_path, transcript, summary, summary_time_seconds, llm_summary, llm_summary_time_seconds, duration_seconds, language_confidence, created_at)
+                        INSERT OR REPLACE INTO meetings (id, user_id, room_name, audio_path, transcript, summary, summary_time_seconds, llm_summary, llm_summary_time_seconds, duration_seconds, language_confidence, created_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (m.get("id"), m.get("user_id", 1), m.get("room_name"), m.get("audio_path"), m.get("transcript"), m.get("summary"), m.get("summary_time_seconds"), m.get("llm_summary"), m.get("llm_summary_time_seconds"), m.get("duration_seconds"), m.get("language_confidence"), m.get("created_at")))
                 print(f"[database] Đã tự động khôi phục {len(backup_data.get('users', []))} người dùng và {len(backup_data.get('meetings', []))} cuộc họp từ Cloudinary backup!")
@@ -159,15 +159,16 @@ def restore_db_from_cloud():
         if backup_data and "users" in backup_data and len(backup_data["users"]) > 0:
             for u in backup_data.get("users", []):
                 conn.execute("""
-                    INSERT OR IGNORE INTO users (id, email, password_hash, full_name, role, created_at)
+                    INSERT OR REPLACE INTO users (id, email, password_hash, full_name, role, created_at)
                     VALUES (?, ?, ?, ?, ?, ?)
                 """, (u.get("id"), u.get("email"), u.get("password_hash"), u.get("full_name"), u.get("role", "user"), u.get("created_at")))
             
             for m in backup_data.get("meetings", []):
                 conn.execute("""
-                    INSERT OR IGNORE INTO meetings (id, user_id, room_name, audio_path, transcript, summary, summary_time_seconds, llm_summary, llm_summary_time_seconds, duration_seconds, language_confidence, created_at)
+                    INSERT OR REPLACE INTO meetings (id, user_id, room_name, audio_path, transcript, summary, summary_time_seconds, llm_summary, llm_summary_time_seconds, duration_seconds, language_confidence, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (m.get("id"), m.get("user_id", 1), m.get("room_name"), m.get("audio_path"), m.get("transcript"), m.get("summary"), m.get("summary_time_seconds"), m.get("llm_summary"), m.get("llm_summary_time_seconds"), m.get("duration_seconds"), m.get("language_confidence"), m.get("created_at")))
+            conn.execute("UPDATE users SET role = 'admin' WHERE id = 1 OR email = 'hakhoatg@gmail.com'")
             conn.commit()
             print(f"[database] restore_db_from_cloud: Đã khôi phục {len(backup_data.get('users', []))} người dùng.")
         conn.close()
