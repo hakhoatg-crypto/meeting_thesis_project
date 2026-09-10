@@ -114,8 +114,8 @@ def init_db():
     conn.commit()
     conn.close()
 
-    # Restore from cloud after closing initial connection
-    restore_db_from_cloud()
+    # Restore from cloud in background thread after closing initial connection so app boots instantly
+    threading.Thread(target=restore_db_from_cloud, daemon=True).start()
 
 # ================= USER MANAGEMENT =================
 
