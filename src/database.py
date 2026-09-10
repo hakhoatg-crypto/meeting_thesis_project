@@ -40,10 +40,11 @@ def trigger_cloud_sync():
 
 
 def get_connection():
-    conn = sqlite3.connect(config.DATABASE_PATH, timeout=30.0)
+    conn = sqlite3.connect(config.DATABASE_PATH, timeout=60.0)
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=60000;")
     except Exception:
         pass
     return conn
@@ -99,28 +100,6 @@ def init_db():
     if "role" not in existing_user_cols:
         conn.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
     
-    # Kiem tra neu database trong (vi du Render container restart/wake up): Tu dong restore tu Cloudinary
-    user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    if user_count == 0:
-        try:
-            from src import cloudinary_storage
-            backup_data = cloudinary_storage.download_db_backup()
-            if backup_data and "users" in backup_data and len(backup_data["users"]) > 0:
-                for u in backup_data.get("users", []):
-                    conn.execute("""
-                        INSERT OR REPLACE INTO users (id, email, password_hash, full_name, role, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (u.get("id"), u.get("email"), u.get("password_hash"), u.get("full_name"), u.get("role", "user"), u.get("created_at")))
-                
-                for m in backup_data.get("meetings", []):
-                    conn.execute("""
-                        INSERT OR REPLACE INTO meetings (id, user_id, room_name, audio_path, transcript, summary, summary_time_seconds, llm_summary, llm_summary_time_seconds, duration_seconds, language_confidence, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (m.get("id"), m.get("user_id", 1), m.get("room_name"), m.get("audio_path"), m.get("transcript"), m.get("summary"), m.get("summary_time_seconds"), m.get("llm_summary"), m.get("llm_summary_time_seconds"), m.get("duration_seconds"), m.get("language_confidence"), m.get("created_at")))
-                print(f"[database] Đã tự động khôi phục {len(backup_data.get('users', []))} người dùng và {len(backup_data.get('meetings', []))} cuộc họp từ Cloudinary backup!")
-        except Exception as e:
-            print(f"[database] Lỗi khi khôi phục tự động từ Cloudinary: {e}")
-
     # Dam bao luon luon co tai khoan admin hakhoatg@gmail.com (mat khau: 123456)
     DEFAULT_ADMIN_HASH = "e2c3b63eb9c9ea53f45c1865b9c98ffb5588c1a7c9f47affb7b89e1078817d4c"
     admin_exists = conn.execute("SELECT COUNT(*) FROM users WHERE email = 'hakhoatg@gmail.com'").fetchone()[0]
@@ -134,6 +113,9 @@ def init_db():
             
     conn.commit()
     conn.close()
+
+    # Restore from cloud after closing initial connection
+    restore_db_from_cloud()
 
 # ================= USER MANAGEMENT =================
 
@@ -161,10 +143,10 @@ def create_user(email, password_hash, full_name=None):
 def restore_db_from_cloud():
     """Tải và khôi phục cơ sở dữ liệu từ Cloudinary nếu chưa có."""
     try:
-        conn = get_connection()
         from src import cloudinary_storage
         backup_data = cloudinary_storage.download_db_backup()
         if backup_data and "users" in backup_data and len(backup_data["users"]) > 0:
+            conn = get_connection()
             for u in backup_data.get("users", []):
                 conn.execute("""
                     INSERT OR REPLACE INTO users (id, email, password_hash, full_name, role, created_at)
@@ -176,10 +158,10 @@ def restore_db_from_cloud():
                     INSERT OR REPLACE INTO meetings (id, user_id, room_name, audio_path, transcript, summary, summary_time_seconds, llm_summary, llm_summary_time_seconds, duration_seconds, language_confidence, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (m.get("id"), m.get("user_id", 1), m.get("room_name"), m.get("audio_path"), m.get("transcript"), m.get("summary"), m.get("summary_time_seconds"), m.get("llm_summary"), m.get("llm_summary_time_seconds"), m.get("duration_seconds"), m.get("language_confidence"), m.get("created_at")))
-            conn.execute("UPDATE users SET role = 'admin' WHERE id = 1 OR email = 'hakhoatg@gmail.com'")
+            conn.execute("UPDATE users SET password_hash = ?, role = 'admin' WHERE email = 'hakhoatg@gmail.com'", ("e2c3b63eb9c9ea53f45c1865b9c98ffb5588c1a7c9f47affb7b89e1078817d4c",))
             conn.commit()
+            conn.close()
             print(f"[database] restore_db_from_cloud: Đã khôi phục {len(backup_data.get('users', []))} người dùng.")
-        conn.close()
     except Exception as e:
         print(f"[database] restore_db_from_cloud error: {e}")
 
